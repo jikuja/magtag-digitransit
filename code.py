@@ -66,7 +66,7 @@ magtag.set_text("loading...")
 #####
 stops_str = '"' + '", "'.join(linesstopsdata.keys()) + '"'
 if debug:
-    print("stops_str", stops_str)
+    print("stops_str: %s" % stops_str)
 query = """query
 {
   stops(ids: [%s]) {
@@ -87,25 +87,41 @@ query = """query
 """ % stops_str
 
 if debug:
-    print("Digitransit playload", query)
+    print("Digitransit playload %s" % query)
 
 #####
 # Connect wifi
 #####
-print("My MAC addr:", [hex(i) for i in wifi.radio.mac_address])
-print("Connecting to %s" % wifi_ssid)
-wifi.radio.connect(wifi_ssid, wifi_psk)
-print("Connected to %s!" % wifi_ssid)
-print("My IP address is", wifi.radio.ipv4_address)
+def setupWifi():
+    print("My MAC addr:", [hex(i) for i in wifi.radio.mac_address])
+    print("Connecting to %s" % wifi_ssid)
+    wifi.radio.connect(wifi_ssid, wifi_psk)
+    print("Connected to %s!" % wifi_ssid)
+    print("My IP address is", wifi.radio.ipv4_address)
 
-# Print voltage again
-print("Voltage later: %s" % str(magtag.peripherals.battery))
+    # Print voltage again
+    print("Voltage later: %s" % str(magtag.peripherals.battery))
 
-######
-# setup TCP pooling and requests object with TLS
-######
-pool = socketpool.SocketPool(wifi.radio)
-requests = adafruit_requests.Session(pool, ssl.create_default_context())
+    ######
+    # setup TCP pooling and requests object with TLS
+    ######
+    global requests
+    pool = socketpool.SocketPool(wifi.radio)
+    requests = adafruit_requests.Session(pool, ssl.create_default_context())
+
+def requestTimeAndCalculateOffset():
+    ######
+    # request current time
+    ######
+    print("Fetching time from %s" % TIME_URL)
+    response = requests.get(TIME_URL)
+    timeNow = response.text
+    print("-" * 40)
+    print("time now: %s" % response.text)
+    print("-" * 40)
+    # Calculcate offset with UTC
+    timeOffset = 3*60*60 if "EEST" in timeNow else 2*60*60
+    return timeNow, timeOffset
 
 def sortHelper(elem):
     return elem["serviceDay"] + elem["realtimeArrival"]
@@ -136,19 +152,7 @@ def createLine(elem, timeOffset):
     ret = """{:>4} {:1}{:02d}:{:02d} d: {:5d}s state: {:}""".format(busNumber, tilde, arrTime.hour, arrTime.minute, delta, realtimeState)
     return ret
 
-def main():
-
-    ######
-    # request current time
-    ######
-    print("Fetching time from ", TIME_URL)
-    response = requests.get(TIME_URL)
-    timeNow = response.text
-    print("-" * 40)
-    print("time now:" + response.text)
-    print("-" * 40)
-    timeOffset = 3*60*60 if "EEST" in timeNow else 2*60*60
-
+def main(timeNow, timeOffset):
     #####
     # Get digitransit API data
     #####
@@ -160,10 +164,10 @@ def main():
         voltage = magtag.peripherals.battery
         payload = response.json()["data"]["stops"]
         if debug:
-            print("payload", payload)
+            print("payload: %s" % payload)
 
         filtered = [extractAndFilterStopTimes(elem) for elem in payload]
-        print("filtered: ", len(filtered))
+        print("filtered: %s" % len(filtered))
         merged = reduce(lambda a,b: a+b, filtered)
         merged.sort(key=sortHelper)
 
@@ -172,24 +176,31 @@ def main():
 
         # merge time, voltage information and line data
         result = timeNow + ' ' + str(magtag.peripherals.battery) + ' volts\n' + '\n'.join(result[:7])
+        print(result)
         return result
     else:
         raise Exception("Digitransit API: returned status code: %s" % response.status_code)
 
 try:
-    result = main()
-    print(result)
+    setupWifi()
+    timeNow, timeOffset = requestTimeAndCalculateOffset()
+    result = main(timeNow, timeOffset)
 
 except Exception as e:
-    print('main() completed with Exception')
+    print('completed with Exception')
     import traceback
     import io
     import storage
     print('traceback.print_exception')
     traceback.print_exception(e, e, e.__traceback__)
     result = ''.join(traceback.format_exception(e, e, e.__traceback__))
+    print('result from excepion no wrapping')
+    print(result)
     result = magtag.wrap_nicely(result, 48)
     print('result from excepion')
+    print(result)
+    result = '\n'.join(result)
+    print('Final result')
     print(result)
 
     # save stack on file

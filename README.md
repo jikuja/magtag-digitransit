@@ -20,5 +20,12 @@ Out of stock on January 2023
 
 ## Tested versions
 
+* UF2 0.8.0 (Jan 5, 2022)
 * Tested with Adafruit CircuitPython 7.2.0 (Feb 24, 2022)
 * CircuitPython libraries version relases Feb 24, 2022 -ish: <https://github.com/adafruit/CircuitPython_Community_Bundle/releases/tag/20220217>
+
+## Future changes
+
+* v7.2.0 CircuitPython added frozen modules for Magtag => No need to copy them into device: adafruit_display_text, adafruit_fakerequests, adafruit_lis3dh, adafruit_portalbase, adafruit_requests, neopixel
+  * Magtag documentation have not been updated for this
+
