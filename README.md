@@ -20,9 +20,23 @@ Out of stock on January 2023
 
 ## Tested versions
 
-* UF2 0.8.0 (Jan 5, 2022)
-* Tested with Adafruit CircuitPython 7.2.0 (Feb 24, 2022)
+* TinyUF2 Bootloader 0.18.1 (Nov 14 2023)
+* TAdafruit CircuitPython 8.2.9 on 2023-12-06
 * CircuitPython libraries version relases Feb 24, 2022 -ish: <https://github.com/adafruit/CircuitPython_Community_Bundle/releases/tag/20220217>
+  * Required modules
+    * adafruit_datetime.mpy
+    * adafruit_magtag/
+      * via code.py
+      * Dependency will be removed soon
+    * adafruit_bitmap_font
+      * via adafruit_portalbase/__init__.py
+    * adafruit_io
+      * via adafruit_magtag -> adafruit_magtag/network -> adafruit_portalbase/network
+      * Will be removed?
+    * adafruit_minimqtt
+      * via adafruit_magtag -> adafruit_magtag/network -> adafruit_portalbase/network -> adafruit_io
+      * Will be removed?
+
 
 ## Future changes
 
