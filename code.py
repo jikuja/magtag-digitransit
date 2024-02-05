@@ -5,12 +5,14 @@ import wifi
 import socketpool
 import adafruit_requests
 from adafruit_datetime import datetime
-from adafruit_magtag.magtag import MagTag
 import alarm
 import board
-import time
-import digitalio
 import supervisor
+import displayio
+import terminalio
+import time
+from adafruit_display_text import label
+from analogio import AnalogIn
 
 # https://github.com/micropython/micropython-lib/blob/master/python-stdlib/functools/functools.py#L20
 def reduce(function, iterable, initializer=None):
@@ -23,10 +25,36 @@ def reduce(function, iterable, initializer=None):
         value = function(value, element)
     return value
 
-# TODO: Replace usage of magtag to displayio
-magtag = MagTag(default_bg=0xffffff)
+def setupDisplay():
+    # Setup 1
+    global display
+    display = board.DISPLAY
+    g = displayio.Group()
+    # Background
+    background_bitmap = displayio.Bitmap(display.width, display.height, 1)
+    palette = displayio.Palette(1)
+    palette[0] = 0xFFFFFF
+    t = displayio.TileGrid(background_bitmap, pixel_shader=palette, x=0, y=0)
+    g.append(t)
+
+    # Text
+    text_group = displayio.Group(scale=1, x=1, y=1)
+    #text_area = label.Label(terminalio.FONT, text=' '*20, color=0x000000)
+    # TODO: text_area.text = loading... # TODO: calculate value for 20
+    global text_area
+    text_area = label.Label(terminalio.FONT, text='loading...', color=0x000000, anchor_point=(0, 0), anchored_position=(0,0))
+    text_group.append(text_area)  # Add this text to the text group
+    g.append(text_group)
+
+    # Setup 2
+    display.root_group = g
+    display.refresh()
+
 # First voltage print asap after setting up magtag
-print("Voltage: %s" % str(magtag.peripherals.battery))
+_batt_monitor = AnalogIn(board.BATTERY)
+def battery() -> float:
+    return (_batt_monitor.value / 65535.0) * 3.3 * 2
+print("Voltage: %s" % str(battery()))
 
 # Get configs from a config.py file
 try:
@@ -50,16 +78,6 @@ TIME_URL += "&fmt=%25Y-%25m-%25d+%25H%3A%25M+%25z+%25Z"
 
 linesstopsdata = config["linesstopsdata"]
 voltage_limit = config.get("voltage_limit", 3.0)
-
-######
-# Start
-######
-magtag.add_text(
-    text_position=(0, 0),
-    text_anchor_point=(0, 0)
-)
-
-magtag.set_text("loading...")
 
 #####
 # Create digitransit payload
@@ -100,7 +118,7 @@ def setupWifi():
     print("My IP address is", wifi.radio.ipv4_address)
 
     # Print voltage again
-    print("Voltage later: %s" % str(magtag.peripherals.battery))
+    print("Voltage later: %s" % str(battery()))
 
     ######
     # setup TCP pooling and requests object with TLS
@@ -113,7 +131,7 @@ def requestTimeAndCalculateOffset():
     ######
     # request current time
     ######
-    print("Fetching time from %s" % TIME_URL)
+    print("Fetching time from %s" % TIME_URL.replace(aio_key, "*****"))
     response = requests.get(TIME_URL)
     timeNow = response.text
     print("-" * 40)
@@ -161,7 +179,7 @@ def main(timeNow, timeOffset):
     print("Digitransit API: %s" % response.status_code)
 
     if response.status_code == 200:
-        voltage = magtag.peripherals.battery
+        voltage = battery()
         payload = response.json()["data"]["stops"]
         if debug:
             print("payload: %s" % payload)
@@ -175,13 +193,14 @@ def main(timeNow, timeOffset):
         result = [createLine(x, timeOffset) for x in merged]
 
         # merge time, voltage information and line data
-        result = timeNow + ' ' + str(magtag.peripherals.battery) + ' volts\n' + '\n'.join(result[:7])
+        result = timeNow + ' ' + str(voltage) + ' volts\n' + '\n'.join(result[:7])
         print(result)
         return result
     else:
         raise Exception("Digitransit API: returned status code: %s" % response.status_code)
 
 try:
+    setupDisplay()
     setupWifi()
     timeNow, timeOffset = requestTimeAndCalculateOffset()
     result = main(timeNow, timeOffset)
@@ -196,10 +215,10 @@ except Exception as e:
     result = ''.join(traceback.format_exception(e, e, e.__traceback__))
     print('result from excepion no wrapping')
     print(result)
-    result = magtag.wrap_nicely(result, 48)
+    #result = magtag.wrap_nicely(result, 48)
     print('result from excepion')
     print(result)
-    result = '\n'.join(result)
+    #result = '\n'.join(result)
     print('Final result')
     print(result)
 
@@ -210,31 +229,30 @@ except Exception as e:
         traceback.print_exception(e, e, e.__traceback__, file=file)
 
 # Display result
-magtag.set_text(result)
+#magtag.set_text(result)
+text_area.text = result
+display.refresh()
 
 # display warning on low woltage
 # TODO: rewrite with display io
 # TODO: blink LEDs
-if magtag.peripherals.battery < voltage_limit:
+if battery() < voltage_limit:
     print("LOW Voltage")
-    magtag.add_text(
-        text_position=(240, 20),
-        text_anchor_point=(0, 0)
-    )
-    magtag.set_text(str(magtag.peripherals.battery) + "\nLOW BAT\nLOW BAT\nLOW BAT\nLOW BAT", 1)
+
+    #magtag.add_text(
+    #    text_position=(240, 20),
+    #    text_anchor_point=(0, 0)
+    #)
+    #magtag.set_text(str(magtag.peripherals.battery) + "\nLOW BAT\nLOW BAT\nLOW BAT\nLOW BAT", 1)
 
 # setup button to wake-up
 # set up pin alarms
-magtag.peripherals.deinit()  # TODO: Remove Magtag class usage
+_batt_monitor.deinit()
 pin_alarm = alarm.pin.PinAlarm(pin=board.D11, value=False, pull=True)  # button D
 
 
 # setup sleep
 time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 15*60)
-
-# power down?
-# np_power = digitalio.DigitalInOut(board.NEOPIXEL_POWER)
-# np_power.switch_to_output(value=False)
 
 if supervisor.runtime.usb_connected:
     # TODO: sleep will block REPL. Rewrite...
