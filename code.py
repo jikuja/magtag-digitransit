@@ -38,6 +38,7 @@ def setupDisplay():
     g.append(t)
 
     # Text
+    global text_group
     text_group = displayio.Group(scale=1, x=1, y=1)
     #text_area = label.Label(terminalio.FONT, text=' '*20, color=0x000000)
     # TODO: text_area.text = loading... # TODO: calculate value for 20
@@ -229,21 +230,20 @@ except Exception as e:
         traceback.print_exception(e, e, e.__traceback__, file=file)
 
 # Display result
-#magtag.set_text(result)
 text_area.text = result
-display.refresh()
 
 # display warning on low woltage
 # TODO: rewrite with display io
 # TODO: blink LEDs
 if battery() < voltage_limit:
     print("LOW Voltage")
+    battery_label = label.Label(terminalio.FONT, text="\nLOW BAT\nLOW BAT\nLOW BAT\nLOW BAT\nLOW BAT\nLOW BAT",
+        color=0x000000, background_color=0xAAAAAA,
+        anchor_point=(0, 0), anchored_position=(180,24),
+        padding_top=10, padding_bottom=10, padding_left=10, padding_right=20)
+    text_group.append(battery_label)
 
-    #magtag.add_text(
-    #    text_position=(240, 20),
-    #    text_anchor_point=(0, 0)
-    #)
-    #magtag.set_text(str(magtag.peripherals.battery) + "\nLOW BAT\nLOW BAT\nLOW BAT\nLOW BAT", 1)
+display.refresh()
 
 # setup button to wake-up
 # set up pin alarms
