@@ -251,24 +251,33 @@ print("display.time_to_refresh: " + str(display.time_to_refresh))
 time.sleep(display.time_to_refresh + 0.10)
 display.refresh()
 
-# setup button to wake-up
-# set up pin alarms
-_batt_monitor.deinit()
-pin_alarm = alarm.pin.PinAlarm(pin=board.D11, value=False, pull=True)  # button D
 
 
-# setup sleep
-time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 15*60)
 
 if supervisor.runtime.usb_connected:
-    # TODO: sleep will block REPL. Rewrite...
+    #deinit some i/o
+    _batt_monitor.deinit()
+    #displayio.release_displays() # this will also wait until display is not busy
+    # set up pin alarms
+    pin_alarm = alarm.pin.PinAlarm(pin=board.D11, value=False, pull=True)  # button D
+    # setup sleep
+    time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 15*60)
+
     # sleep and restart
     print("Sleeping...")
-    #time.sleep(15*60)
+    #time.sleep(15*60) # sleep will block REPL
     alarm.light_sleep_until_alarms(time_alarm, pin_alarm)
     print("Resetting...")
     supervisor.reload()
 else:
+    #deinit some i/o
+    _batt_monitor.deinit()
+    displayio.release_displays() # this will also wait until display is not busy
+    # set up pin alarms
+    pin_alarm = alarm.pin.PinAlarm(pin=board.D11, value=False, pull=True)  # button D
+    # setup sleep
+    time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 15*60)
+
     # restart
     print("deep sleep")
     print("exit_and_deep_sleep_until_alarms...")
