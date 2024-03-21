@@ -30,12 +30,15 @@ def setupDisplay():
     global display
     display = board.DISPLAY
     g = displayio.Group()
+
     # Background
-    background_bitmap = displayio.Bitmap(display.width, display.height, 1)
+    background_bitmap = displayio.Bitmap(display.width // 8, display.height // 8, 1)
     palette = displayio.Palette(1)
     palette[0] = 0xFFFFFF
     t = displayio.TileGrid(background_bitmap, pixel_shader=palette, x=0, y=0)
-    g.append(t)
+    background_group = displayio.Group(scale=8)
+    background_group.append(t)
+    g.append(background_group)
 
     # Text
     global text_group
