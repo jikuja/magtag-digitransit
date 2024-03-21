@@ -246,6 +246,9 @@ if battery() < voltage_limit:
         padding_top=10, padding_bottom=10, padding_left=10, padding_right=20)
     text_group.append(battery_label)
 
+# Make sure we can refresh display. Sleep if needed. Display support updates once per 5 seconds
+print("display.time_to_refresh: " + str(display.time_to_refresh))
+time.sleep(display.time_to_refresh + 0.10)
 display.refresh()
 
 # setup button to wake-up
